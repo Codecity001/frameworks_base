@@ -166,7 +166,7 @@ public class UdfpsController implements DozeReceiver {
     private boolean mOnFingerDown;
     private boolean mAttemptedToDismissKeyguard;
     private final Set<Callback> mCallbacks = new HashSet<>();
-
+    private final int mUdfpsVendorCode;
     // Boostframework for UDFPS
     private BoostFramework mPerf = null;
     private boolean mIsPerfLockAcquired = false;
@@ -252,7 +252,7 @@ public class UdfpsController implements DozeReceiver {
                         mOverlay.onAcquiredGood();
                     }
                     if (acquiredInfo == 6 && (mStatusBarStateController.isDozing() || !mScreenOn)) {
-                        if (vendorCode == 22) { // Use overlay to determine pressed vendor code?
+                        if (vendorCode == mUdfpsVendorCode) { // Use overlay to determine pressed vendor code?
                             mPowerManager.wakeUp(mSystemClock.uptimeMillis(),
                                     PowerManager.WAKE_REASON_GESTURE, TAG);
                             onAodInterrupt(0, 0, 0, 0); // TODO: pass proper values
@@ -675,7 +675,9 @@ public class UdfpsController implements DozeReceiver {
                 Context.RECEIVER_EXPORTED_UNAUDITED);
 
         udfpsHapticsSimulator.setUdfpsController(this);
-        udfpsShell.setUdfpsOverlayController(mUdfpsOverlayController);
+        udfpsShell.setUdfpsOverlayController(mUdfpsOverlayController);  
+
+        mUdfpsVendorCode = mContext.getResources().getInteger(R.integer.config_udfps_vendor_code);
         mPerf = new BoostFramework();
     }
 
