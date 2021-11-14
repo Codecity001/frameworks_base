@@ -91,5 +91,7 @@
     <java-symbol type="string" name="notification_channel_missing_permission" />
     <java-symbol type="string" name="missing_sensors_permission_title" />
     <java-symbol type="string" name="missing_sensors_permission_message" />
-
+    
+    <!-- Whether devices suports in-display fingerprint when screen is off -->
+    <java-symbol type="bool" name="config_supportsScreenOffUdfps" />
 </resources>
