@@ -21,7 +21,7 @@ import static java.util.Map.entry;
 
 import android.os.Build;
 import android.util.Log;
-
+import android.app.Application;
 import java.util.Arrays;
 import java.lang.reflect.Field;
 import java.util.Map;
@@ -122,6 +122,15 @@ public final class PixelPropsUtils {
         } else if (packagesToChangePixelXL.contains(packageName)) {
             commonProps.forEach(PixelPropsUtils::setPropValue);
             marlinProps.forEach(PixelPropsUtils::setPropValue);
+        }
+        if (packageName.equals("com.google.android.gms")) {
+            final String processName = Application.getProcessName();
+            if (processName.equals("com.google.android.gms.unstable")) {
+                sIsGms = true;
+                setPropValue("FINGERPRINT", "google/angler/angler:6.0/MDB08L/2343525:user/release-keys");
+                setPropValue("MODEL", "angler");
+            }
+            return;
         }
         // Set proper indexing fingerprint
         if (packageName.equals("com.google.android.settings.intelligence")) {
