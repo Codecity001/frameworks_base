@@ -19,6 +19,7 @@ package com.android.systemui.biometrics;
 import com.android.systemui.R;
 import static android.hardware.biometrics.BiometricFingerprintConstants.FINGERPRINT_ACQUIRED_GOOD;
 import static android.hardware.biometrics.BiometricOverlayConstants.REASON_AUTH_KEYGUARD;
+import static android.hardware.biometrics.BiometricFingerprintConstants.FINGERPRINT_ACQUIRED_VENDOR;
 
 import static com.android.internal.util.Preconditions.checkNotNull;
 import static com.android.systemui.classifier.Classifier.UDFPS_AUTHENTICATION;
@@ -32,6 +33,7 @@ import android.content.IntentFilter;
 import android.database.ContentObserver;
 import android.graphics.Point;
 import android.hardware.biometrics.BiometricFingerprintConstants;
+import android.hardware.display.AmbientDisplayConfiguration;
 import android.hardware.display.DisplayManager;
 import android.hardware.fingerprint.FingerprintManager;
 import android.hardware.fingerprint.IUdfpsOverlayController;
@@ -174,6 +176,7 @@ public class UdfpsController implements DozeReceiver {
     private boolean mAttemptedToDismissKeyguard;
     private final Set<Callback> mCallbacks = new HashSet<>();
     private final int mUdfpsVendorCode;
+    private final AmbientDisplayConfiguration mAmbientDisplayConfiguration;
     private final SystemSettings mSystemSettings;
     private boolean mScreenOffFod;
 
@@ -261,18 +264,18 @@ public class UdfpsController implements DozeReceiver {
                     if (acquiredGood) {
                         mOverlay.onAcquiredGood();
                     }
-                    final boolean isDozing = mStatusBarStateController.isDozing() || !mScreenOn;
-                    if (acquiredInfo == 6 && vendorCode == mUdfpsVendorCode) {
-                        if ((mScreenOffFod && isDozing) /** Screen off and dozing */
-                                ||
-                                (mKeyguardUpdateMonitor.isDreaming() && mScreenOn) /** AOD or pulse */
-                        ) { // Use overlay to determine pressed vendor code?
-                            mPowerManager.wakeUp(mSystemClock.uptimeMillis(),
-                                    PowerManager.WAKE_REASON_GESTURE, TAG);
-                            onAodInterrupt(0, 0, 0, 0); // TODO: pass proper values
-                        }
-                    }
                 });
+            } else {
+                boolean acquiredVendor = acquiredInfo == FINGERPRINT_ACQUIRED_VENDOR;
+                final boolean isAodEnabled = mAmbientDisplayConfiguration.alwaysOnEnabled(UserHandle.USER_CURRENT);
+                final boolean isShowingAmbientDisplay = mStatusBarStateController.isDozing() && mScreenOn;
+                if (acquiredVendor && ((mScreenOffFod && !mScreenOn) || (isAodEnabled && isShowingAmbientDisplay))) {
+                    if (vendorCode == mUdfpsVendorCode) {
+                        mPowerManager.wakeUp(mSystemClock.uptimeMillis(),
+                                PowerManager.WAKE_REASON_GESTURE, TAG);
+                        onAodInterrupt(0, 0, 0, 0);
+                    }
+                }
             }
         }
 
@@ -695,9 +698,11 @@ public class UdfpsController implements DozeReceiver {
 
         mUdfpsVendorCode = mContext.getResources().getInteger(R.integer.config_udfps_vendor_code);
         mSystemSettings = systemSettings;
+
+        mAmbientDisplayConfiguration = new AmbientDisplayConfiguration(mContext);
         updateScreenOffFodState();
         mSystemSettings.registerContentObserver(Settings.System.SCREEN_OFF_UDFPS,
-            new ContentObserver(mMainHandler) {
+            new ContentObserver(mainHandler) {
                 @Override
                 public void onChange(boolean selfChange, Uri uri) {
                     if (uri.getLastPathSegment().equals(Settings.System.SCREEN_OFF_UDFPS)) {
