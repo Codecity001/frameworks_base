@@ -55,6 +55,13 @@ public final class PixelPropsUtils {
         entry("FINGERPRINT", "google/raven/raven:13/TP1A.221005.002/9012097:user/release-keys")
     );
 
+    private static final Map<String, String> cheetahProps = Map.ofEntries(
+        entry("DEVICE", "cheetah"),
+        entry("PRODUCT", "cheetah"),
+        entry("MODEL", "Pixel 7 Pro"),
+        entry("FINGERPRINT", "google/cheetah/cheetah:13/TD1A.221105.001/9104446:user/release-keys")
+    );
+
     private static final Map<String, String> marlinProps = Map.ofEntries(
         entry("DEVICE", "marlin"),
         entry("PRODUCT", "marlin"),
@@ -63,31 +70,41 @@ public final class PixelPropsUtils {
     );
 
     private static final Set<String> packagesToChange = Set.of(
-        "com.google.android.apps.customization.pixel",
         "com.google.android.apps.fitness",
-        "com.google.android.apps.gcs",
-        "com.google.android.apps.nexuslauncher",
-        "com.google.android.apps.messaging",
-        "com.google.android.apps.safetyhub",
-        "com.google.android.apps.tachyon",
-        "com.google.android.apps.turbo",
-        "com.google.android.apps.turboadapter",
-        "com.google.android.apps.wallpaper",
-        "com.google.android.apps.wallpaper.pixel",
-        "com.google.android.apps.wellbeing",
-        "com.google.android.as",
-        "com.google.android.configupdater",
         "com.google.android.dialer",
+        "com.google.android.configupdater",
         "com.google.android.ext.services",
         "com.google.android.gms",
         "com.google.android.gms.location.history",
-        "com.google.android.googlequicksearchbox",
         "com.google.android.gsf",
-        "com.google.android.inputmethod.latin",
         "com.google.android.soundpicker",
-        "com.google.intelligence.sense",
-        "com.google.pixel.dynamicwallpapers",
         "com.google.pixel.livewallpaper"
+    );
+
+    private static final Set<String> packagesToChangePixel7Pro = Set.of(
+        "com.google.android.apps.customization.pixel",
+        "com.google.android.apps.googleassistant",
+        "com.google.android.apps.gcs",
+        "com.google.android.apps.nexuslauncher",
+        "com.google.android.apps.messaging",
+        "com.google.android.as",
+        "com.google.android.apps.nbu.files",
+        "com.google.android.apps.podcasts",
+        "com.google.android.apps.safetyhub",
+        "com.google.android.apps.turbo",
+        "com.google.android.apps.turboadapter",
+        "com.google.android.apps.wallpaper.pixel",
+        "com.google.android.apps.wellbeing",
+        "com.google.android.apps.privacy.wildlife",
+        "com.google.android.apps.subscriptions.red",
+        "com.google.android.apps.tachyon",
+        "com.google.android.apps.wallpaper",
+        "com.google.pixel.dynamicwallpapers",
+        "com.google.android.googlequicksearchbox",
+        "com.google.android.contacts",
+        "com.google.android.deskclock",
+        "com.google.intelligence.sense",
+        "com.google.android.inputmethod.latin"
     );
 
     private static final Set<String> packagesToChangePixelXL = Set.of(
@@ -122,6 +139,9 @@ public final class PixelPropsUtils {
         } else if (packagesToChangePixelXL.contains(packageName)) {
             commonProps.forEach(PixelPropsUtils::setPropValue);
             marlinProps.forEach(PixelPropsUtils::setPropValue);
+        } else if (packagesToChangePixel7Pro.contains(packageName)) {
+            commonProps.forEach(PixelPropsUtils::setPropValue);
+            cheetahProps.forEach(PixelPropsUtils::setPropValue);
         }
         // Set proper indexing fingerprint
         if (packageName.equals("com.google.android.settings.intelligence")) {
