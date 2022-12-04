@@ -16,6 +16,7 @@
 
 package com.android.systemui.biometrics;
 
+import com.android.systemui.R;
 import static android.hardware.biometrics.BiometricFingerprintConstants.FINGERPRINT_ACQUIRED_GOOD;
 import static android.hardware.biometrics.BiometricOverlayConstants.REASON_AUTH_KEYGUARD;
 
@@ -28,18 +29,22 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.ContentObserver;
 import android.graphics.Point;
 import android.hardware.biometrics.BiometricFingerprintConstants;
 import android.hardware.display.DisplayManager;
 import android.hardware.fingerprint.FingerprintManager;
 import android.hardware.fingerprint.IUdfpsOverlayController;
 import android.hardware.fingerprint.IUdfpsOverlayControllerCallback;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.PowerManager;
 import android.os.Process;
 import android.os.Trace;
+import android.os.UserHandle;
 import android.os.VibrationAttributes;
 import android.os.VibrationEffect;
+import android.provider.Settings;
 import android.util.BoostFramework;
 import android.util.Log;
 import android.util.RotationUtils;
@@ -72,6 +77,7 @@ import com.android.systemui.statusbar.policy.ConfigurationController;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.util.concurrency.DelayableExecutor;
 import com.android.systemui.util.concurrency.Execution;
+import com.android.systemui.util.settings.SystemSettings;
 import com.android.systemui.util.time.SystemClock;
 
 import java.util.HashSet;
@@ -109,6 +115,7 @@ public class UdfpsController implements DozeReceiver {
     @NonNull private final LayoutInflater mInflater;
     private final WindowManager mWindowManager;
     private final DelayableExecutor mFgExecutor;
+    @NonNull private final Handler mMainHandler;
     @NonNull private final Executor mBiometricExecutor;
     @NonNull private final PanelExpansionStateManager mPanelExpansionStateManager;
     @NonNull private final StatusBarStateController mStatusBarStateController;
@@ -167,6 +174,9 @@ public class UdfpsController implements DozeReceiver {
     private boolean mAttemptedToDismissKeyguard;
     private final Set<Callback> mCallbacks = new HashSet<>();
     private final int mUdfpsVendorCode;
+    private final SystemSettings mSystemSettings;
+    private boolean mScreenOffFod;
+
     // Boostframework for UDFPS
     private BoostFramework mPerf = null;
     private boolean mIsPerfLockAcquired = false;
@@ -251,8 +261,12 @@ public class UdfpsController implements DozeReceiver {
                     if (acquiredGood) {
                         mOverlay.onAcquiredGood();
                     }
-                    if (acquiredInfo == 6 && (mStatusBarStateController.isDozing() || !mScreenOn)) {
-                        if (vendorCode == mUdfpsVendorCode) { // Use overlay to determine pressed vendor code?
+                    final boolean isDozing = mStatusBarStateController.isDozing() || !mScreenOn;
+                    if (acquiredInfo == 6 && vendorCode == mUdfpsVendorCode) {
+                        if ((mScreenOffFod && isDozing) /** Screen off and dozing */
+                                ||
+                                (mKeyguardUpdateMonitor.isDreaming() && mScreenOn) /** AOD or pulse */
+                        ) { // Use overlay to determine pressed vendor code?
                             mPowerManager.wakeUp(mSystemClock.uptimeMillis(),
                                     PowerManager.WAKE_REASON_GESTURE, TAG);
                             onAodInterrupt(0, 0, 0, 0); // TODO: pass proper values
@@ -619,6 +633,7 @@ public class UdfpsController implements DozeReceiver {
             @NonNull SystemClock systemClock,
             @NonNull UnlockedScreenOffAnimationController unlockedScreenOffAnimationController,
             @NonNull SystemUIDialogManager dialogManager,
+            @NonNull SystemSettings systemSettings,
             @NonNull LatencyTracker latencyTracker,
             @NonNull ActivityLaunchAnimator activityLaunchAnimator,
             @NonNull Optional<AlternateUdfpsTouchProvider> aternateTouchProvider,
@@ -632,6 +647,7 @@ public class UdfpsController implements DozeReceiver {
         mFingerprintManager = checkNotNull(fingerprintManager);
         mWindowManager = windowManager;
         mFgExecutor = fgExecutor;
+        mMainHandler = mainHandler;
         mPanelExpansionStateManager = panelExpansionStateManager;
         mStatusBarStateController = statusBarStateController;
         mKeyguardStateController = keyguardStateController;
@@ -678,7 +694,23 @@ public class UdfpsController implements DozeReceiver {
         udfpsShell.setUdfpsOverlayController(mUdfpsOverlayController);  
 
         mUdfpsVendorCode = mContext.getResources().getInteger(R.integer.config_udfps_vendor_code);
+        mSystemSettings = systemSettings;
+        updateScreenOffFodState();
+        mSystemSettings.registerContentObserver(Settings.System.SCREEN_OFF_UDFPS,
+            new ContentObserver(mMainHandler) {
+                @Override
+                public void onChange(boolean selfChange, Uri uri) {
+                    if (uri.getLastPathSegment().equals(Settings.System.SCREEN_OFF_UDFPS)) {
+                        updateScreenOffFodState();
+                    }
+                }
+            }
+        );
         mPerf = new BoostFramework();
+    }
+
+    private void updateScreenOffFodState() {
+        mScreenOffFod = mSystemSettings.getInt(Settings.System.SCREEN_OFF_UDFPS, 0) == 1;
     }
 
     /**

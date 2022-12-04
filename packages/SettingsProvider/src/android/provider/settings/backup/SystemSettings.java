@@ -120,5 +120,6 @@ public class SystemSettings {
         Settings.System.GAMESPACE_DISABLE_CALL_RINGING,
         Settings.System.VOLUME_BUTTON_MUSIC_CONTROL,
 	    Settings.System.VOLUME_PANEL_ON_LEFT,
+        Settings.System.SCREEN_OFF_UDFPS,
     };
 }
